@@ -119,7 +119,7 @@ Start-Process reg.exe -ArgumentList ("ADD", '"HKCU\Software\Microsoft\ServerMana
 # Configure scheduled tasks to run launch-agent
 Write-Host "Registering CircleCI Launch Agent tasks to Task Scheduler"
 $commonTaskSettings = New-ScheduledTaskSettingsSet -Compatibility Vista -AllowStartIfOnBatteries -ExecutionTimeLimit (New-TimeSpan)
-[void](Register-ScheduledTask -Force -TaskName "CircleCI Launch Agent" -User $username -Action (New-ScheduledTaskAction -Execute powershell.exe -Argument "-Command `"& `"`"$installDirPath\$agentFile`"`"`"`" --config `"`"$installDirPath\launch-agent-config.yaml`"`"`"; & logoff.exe (Get-Process -Id `$PID).SessionID`"") -Settings $commonTaskSettings -Trigger (New-ScheduledTaskTrigger -AtLogon -User $username) -RunLevel Highest)
+[void](Register-ScheduledTask -Force -TaskName "CircleCI Launch Agent" -User $username -Action (New-ScheduledTaskAction -Execute powershell.exe -Argument "-Command `"& `"`"$installDirPath\$agentFile`"`"`"`" --config `"`"$installDirPath\launch-agent-config.yaml`"`"`"; & C:\halt.ps1`"") -Settings $commonTaskSettings -Trigger (New-ScheduledTaskTrigger -AtLogon -User $username) -RunLevel Highest)
 $keeperTask = Register-ScheduledTask -Force -TaskName "CircleCI Launch Agent session keeper" -User $username -Password $passwd -Action (New-ScheduledTaskAction -Execute powershell.exe -Argument "-Command `"while (`$true) { if ((query session $username).Length -eq 0) { mstsc.exe /v:localhost; Start-Sleep 5 } Start-Sleep 1 }`"") -Settings $commonTaskSettings -Trigger (New-ScheduledTaskTrigger -AtStartup)
 
 
@@ -134,6 +134,9 @@ api:
 runner:
   name: "$instanceId"
   mode: continuous
+%{ if enable_autoscaler ~}
+  idle_timeout: ${idle_timeout}
+%{ endif ~}
   working_directory: C:\Users\Administrator\AppData\Local\Temp\%s
   cleanup_working_directory: true
 logging:
@@ -154,6 +157,13 @@ if (!(`$MappedDrive)) {
     New-PSDrive -Name `$Drive -Scope Global -Root `$AD_SHARE -Persist -PSProvider "FileSystem"
 }
 "@ > C:\mount_fsx.ps1
+
+echo @"
+[string]`$token = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token-ttl-seconds" = "21600"} -Method PUT -Uri http://169.254.169.254/latest/api/token
+`$instanceId = `$(Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token" = `$token} -Method GET -Uri http://169.254.169.254/latest/meta-data/instance-id)
+aws autoscaling detach-instances --instance-ids `$instanceId --auto-scaling-group-name ${asg_name} --should-decrement-desired-capacity
+Stop-Computer -computername localhost -Force
+"@ > C:\halt.ps1
 
 # Start runner!
 Write-Host "Starting CircleCI Launch Agent"

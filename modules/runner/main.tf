@@ -106,6 +106,7 @@ resource "aws_autoscaling_group" "circleci-runner-asg" {
 }
 
 resource "aws_autoscaling_schedule" "scale-out" {
+  count                     = var.enable_autoscaler ? 0 : 1
   scheduled_action_name     = "${var.name}-scale-out"
   min_size                  = var.min_size
   desired_capacity          = var.max_size
@@ -120,6 +121,7 @@ resource "aws_autoscaling_schedule" "scale-out" {
 }
 
 resource "aws_autoscaling_schedule" "scale-in" {
+  count                     = var.enable_autoscaler ? 0 : 1
   scheduled_action_name     = "${var.name}-scale-in"
   min_size                  = var.min_size
   desired_capacity          = var.min_size

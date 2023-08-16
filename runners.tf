@@ -20,10 +20,15 @@ module "circleci-runners" {
   max_size = each.value.asg.max_size
   ami = each.value.ami
 
+  enable_autoscaler = each.value.enable_autoscaler
+
   user_data = base64encode(templatefile("${path.module}/${each.value.os}-user-data.tpl", {
-    auth_token   = var.circleci_auth_tokens[each.value.name]
-    fsx_dns_name = aws_fsx_openzfs_file_system.circleci-fsx.dns_name
-    asg_name     = each.value.name
+    auth_token        = var.circleci_auth_tokens[each.value.name]
+    fsx_dns_name      = aws_fsx_openzfs_file_system.circleci-fsx.dns_name
+    asg_name          = each.value.name
+    asg_name          = each.value.name
+    idle_timeout      = each.value.idle_timeout
+    enable_autoscaler = each.value.enable_autoscaler
   }))
 
   block_device_mappings = [{

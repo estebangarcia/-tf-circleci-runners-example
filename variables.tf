@@ -49,6 +49,8 @@ variable "runners" {
     })
     ami = string
     key_name = string
+    idle_timeout         = string
+    enable_autoscaler    = bool
     scale_out_recurrence = string
     scale_in_recurrence = string
   }))
@@ -73,6 +75,8 @@ variable "runners" {
     os = "linux"
     root_volume_size = 2000
     spot_instance = true
+    idle_timeout         = "30m"
+    enable_autoscaler    = true
     ami = "ami-id"
     asg = {
       min_size = 0

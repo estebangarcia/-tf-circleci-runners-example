@@ -41,6 +41,9 @@ api:
 runner:
   name: "$instance_id"
   mode: continuous
+%{ if enable_autoscaler ~}
+  idle_timeout: ${idle_timeout}
+%{ endif ~}
   command_prefix: ["sudo", "-niHu", "ubuntu", "--"]
   working_directory: /opt/circleci/workdir/%s
   cleanup_working_directory: true
@@ -52,6 +55,15 @@ chmod 600 /opt/circleci/launch-agent-config.yaml
 mkdir -p /opt/circleci/workdir
 chown -R ubuntu /opt/circleci/workdir
 
+%{ if enable_autoscaler ~}
+cat <<EOF > /opt/circleci/halt.sh
+#!/bin/bash
+aws autoscaling detach-instances --instance-ids $(ec2metadata --instance-id) --auto-scaling-group-name ${asg_name} --should-decrement-desired-capacity
+shutdown -h now
+EOF
+chmod +x /opt/circleci/halt.sh
+%{ endif ~}
+
 cat <<EOF > /opt/circleci/circleci.service
 [Unit]
 Description=CircleCI Runner
@@ -61,6 +73,9 @@ ExecStart=/opt/circleci/circleci-launch-agent --config /opt/circleci/launch-agen
 Restart=yes
 User=root
 NotifyAccess=exec
+%{ if enable_autoscaler ~}
+ExecStopPost=/opt/circleci/halt.sh
+%{ endif ~}
 TimeoutStopSec=18300
 [Install]
 WantedBy = multi-user.target
